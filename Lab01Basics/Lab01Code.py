@@ -8,7 +8,7 @@
 # $ py.test-2.7 -v Lab01Tests.py 
 
 ###########################
-# Group Members: TODO
+# Group Members: BABIS Matej, MOIRAS Stavros
 ###########################
 
 
@@ -29,24 +29,32 @@ import petlib
 
 from os import urandom
 from petlib.cipher import Cipher
+from pytest import raises
+
+aes = Cipher("aes-128-gcm")
+iv = urandom(16)  # requires 16-bit IV
+
 
 def encrypt_message(K, message):
-    """ Encrypt a message under a key K """
+   """ Encrypt a message under a key K """
+   
+   plaintext = message.encode("utf8")
+   ciphertext, tag = aes.quick_gcm_enc(K, iv, plaintext)
+   
+   return iv, ciphertext, tag
 
-    plaintext = message.encode("utf8")
-    
-    ## YOUR CODE HERE
-
-    return (iv, ciphertext, tag)
 
 def decrypt_message(K, iv, ciphertext, tag):
-    """ Decrypt a cipher text under a key K 
+   """ Decrypt a cipher text under a key K
 
         In case the decryption fails, throw an exception.
     """
-    ## YOUR CODE HERE
+   with raises(Exception) as excinfo:
+      plain = aes.quick_gcm_dec(K, iv, ciphertext, tag)
+   assert 'decryption failed' in str(excinfo.value)
+   
+   return plain.encode("utf8")
 
-    return plain.encode("utf8")
 
 #####################################################
 # TASK 3 -- Understand Elliptic Curve Arithmetic
@@ -56,13 +64,13 @@ def decrypt_message(K, iv, ciphertext, tag):
 #           - Implement Scalar multiplication (double & add).
 #           - Implement Scalar multiplication (Montgomery ladder).
 #
-# MUST NOT USE ANY OF THE petlib.ec FUNCIONS. Only petlib.bn!
+# MUST NOT USE ANY OF THE petlib.ec FUNCTIONS. Only petlib.bn!
 
 from petlib.bn import Bn
 
 
 def is_point_on_curve(a, b, p, x, y):
-    """
+   """
     Check that a point (x, y) is on the curve defined by a,b and prime p.
     Reminder: an Elliptic Curve on a prime field p is defined as:
 
@@ -72,24 +80,24 @@ def is_point_on_curve(a, b, p, x, y):
     Return True if point (x,y) is on curve, otherwise False.
     By convention a (None, None) point represents "infinity".
     """
-    assert isinstance(a, Bn)
-    assert isinstance(b, Bn)
-    assert isinstance(p, Bn) and p > 0
-    assert (isinstance(x, Bn) and isinstance(y, Bn)) \
-           or (x == None and y == None)
-
-    if x == None and y == None:
-        return True
-
-    lhs = (y * y) % p
-    rhs = (x*x*x + a*x + b) % p
-    on_curve = (lhs == rhs)
-
-    return on_curve
+   
+   assert isinstance(a, Bn)
+   assert isinstance(b, Bn)
+   assert isinstance(p, Bn) and p > 0
+   assert (isinstance(x, Bn) and isinstance(y, Bn)) or (x is None and y is None)
+   
+   if x is None and y is None:
+      return True
+   
+   lhs = (y * y) % p
+   rhs = (x * x * x + a * x + b) % p
+   on_curve = (lhs == rhs)
+   
+   return on_curve
 
 
 def point_add(a, b, p, x0, y0, x1, y1):
-    """Define the "addition" operation for 2 EC Points.
+   """Define the "addition" operation for 2 EC Points.
 
     Reminder: (xr, yr) = (xq, yq) + (xp, yp)
     is defined as:
@@ -99,14 +107,37 @@ def point_add(a, b, p, x0, y0, x1, y1):
 
     Return the point resulting from the addition. Raises an Exception if the points are equal.
     """
+   
+   # check if the points satisfy the curve equation
+   if not is_point_on_curve(a, b, p, x0, y0) or not is_point_on_curve(a, b, p, x1, y1):
+      raise Exception("One of the point not on curve")
+   
+   # if one of the elements is a neutral element (point at infinity),
+   # return the result of the addition is the other point
+   if x0 is None and y0 is None:
+      return x1, y1
+   if x1 is None and y1 is None:
+      return x0, y0
+   
+   # special case: raise an exception, this is solved in doubling
+   if (x0, y0) == (x1, y1):
+      raise Exception("EC Points must not be equal")
+   
+   # result of adding two points with the same remainder is a neutral element
+   if x0 % p == x1 % p or y0 % p == y1 % p:
+      return None, None
+      
+   # operator syntax not available for inverses, so have to use a function,
+   # otherwise use the formula
+   lam = ((y1 - y0) * ((x1 - x0).mod_inverse(p))) % p
+   xr = ((lam ** 2) - x0 - x1) % p
+   yr = (lam * (x0 - xr) - y0) % p
 
-    # ADD YOUR CODE BELOW
-    xr, yr = None, None
-    
-    return (xr, yr)
+   return xr, yr
+
 
 def point_double(a, b, p, x, y):
-    """Define "doubling" an EC point.
+   """Define "doubling" an EC point.
      A special case, when a point needs to be added to itself.
 
      Reminder:
@@ -115,15 +146,16 @@ def point_double(a, b, p, x, y):
         yr  = lam * (xp - xr) - yp (mod p)
 
     Returns the point representing the double of the input (x, y).
-    """  
+    """
+   
+   # ADD YOUR CODE BELOW
+   xr, yr = None, None
+   
+   return xr, yr
 
-    # ADD YOUR CODE BELOW
-    xr, yr = None, None
-
-    return xr, yr
 
 def point_scalar_multiplication_double_and_add(a, b, p, x, y, scalar):
-    """
+   """
     Implement Point multiplication with a scalar:
         r * (x, y) = (x, y) + ... + (x, y)    (r times)
 
@@ -136,16 +168,17 @@ def point_scalar_multiplication_double_and_add(a, b, p, x, y, scalar):
         return Q
 
     """
-    Q = (None, None)
-    P = (x, y)
+   Q = (None, None)
+   P = (x, y)
+   
+   for i in range(scalar.num_bits()):
+      pass  ## ADD YOUR CODE HERE
+   
+   return Q
 
-    for i in range(scalar.num_bits()):
-        pass ## ADD YOUR CODE HERE
-
-    return Q
 
 def point_scalar_multiplication_montgomerry_ladder(a, b, p, x, y, scalar):
-    """
+   """
     Implement Point multiplication with a scalar:
         r * (x, y) = (x, y) + ... + (x, y)    (r times)
 
@@ -162,13 +195,13 @@ def point_scalar_multiplication_montgomerry_ladder(a, b, p, x, y, scalar):
         return R0
 
     """
-    R0 = (None, None)
-    R1 = (x, y)
-
-    for i in reversed(range(0,scalar.num_bits())):
-        pass ## ADD YOUR CODE HERE
-
-    return R0
+   R0 = (None, None)
+   R1 = (x, y)
+   
+   for i in reversed(range(0, scalar.num_bits())):
+      pass  ## ADD YOUR CODE HERE
+   
+   return R0
 
 
 #####################################################
@@ -183,30 +216,33 @@ from hashlib import sha256
 from petlib.ec import EcGroup
 from petlib.ecdsa import do_ecdsa_sign, do_ecdsa_verify
 
+
 def ecdsa_key_gen():
-    """ Returns an EC group, a random private key for signing 
+   """ Returns an EC group, a random private key for signing
         and the corresponding public key for verification"""
-    G = EcGroup()
-    priv_sign = G.order().random()
-    pub_verify = priv_sign * G.generator()
-    return (G, priv_sign, pub_verify)
+   G = EcGroup()
+   priv_sign = G.order().random()
+   pub_verify = priv_sign * G.generator()
+   return (G, priv_sign, pub_verify)
 
 
 def ecdsa_sign(G, priv_sign, message):
-    """ Sign the SHA256 digest of the message using ECDSA and return a signature """
-    plaintext =  message.encode("utf8")
+   """ Sign the SHA256 digest of the message using ECDSA and return a signature """
+   plaintext = message.encode("utf8")
+   
+   ## YOUR CODE HERE
+   
+   return sig
 
-    ## YOUR CODE HERE
-
-    return sig
 
 def ecdsa_verify(G, pub_verify, message, sig):
-    """ Verify the ECDSA signature on the message """
-    plaintext =  message.encode("utf8")
+   """ Verify the ECDSA signature on the message """
+   plaintext = message.encode("utf8")
+   
+   ## YOUR CODE HERE
+   
+   return res
 
-    ## YOUR CODE HERE
-
-    return res
 
 #####################################################
 # TASK 5 -- Diffie-Hellman Key Exchange and Derivation
@@ -217,32 +253,34 @@ def ecdsa_verify(G, pub_verify, message, sig):
 # NOTE: 
 
 def dh_get_key():
-    """ Generate a DH key pair """
-    G = EcGroup()
-    priv_dec = G.order().random()
-    pub_enc = priv_dec * G.generator()
-    return (G, priv_dec, pub_enc)
+   """ Generate a DH key pair """
+   G = EcGroup()
+   priv_dec = G.order().random()
+   pub_enc = priv_dec * G.generator()
+   return (G, priv_dec, pub_enc)
 
 
-def dh_encrypt(pub, message, aliceSig = None):
-    """ Assume you know the public key of someone else (Bob), 
+def dh_encrypt(pub, message, aliceSig=None):
+   """ Assume you know the public key of someone else (Bob),
     and wish to Encrypt a message for them.
         - Generate a fresh DH key for this message.
         - Derive a fresh shared key.
         - Use the shared key to AES_GCM encrypt the message.
         - Optionally: sign the message with Alice's key.
     """
-    
-    ## YOUR CODE HERE
-    pass
+   
+   ## YOUR CODE HERE
+   pass
 
-def dh_decrypt(priv, ciphertext, aliceVer = None):
-    """ Decrypt a received message encrypted using your public key, 
+
+def dh_decrypt(priv, ciphertext, aliceVer=None):
+   """ Decrypt a received message encrypted using your public key,
     of which the private key is provided. Optionally verify 
     the message came from Alice using her verification key."""
-    
-    ## YOUR CODE HERE
-    pass
+   
+   ## YOUR CODE HERE
+   pass
+
 
 ## NOTE: populate those (or more) tests
 #  ensure they run using the "py.test filename" command.
@@ -250,13 +288,16 @@ def dh_decrypt(priv, ciphertext, aliceVer = None):
 #  $ py.test-2.7 --cov-report html --cov Lab01Code Lab01Code.py 
 
 def test_encrypt():
-    assert False
+   assert False
+
 
 def test_decrypt():
-    assert False
+   assert False
+
 
 def test_fails():
-    assert False
+   assert False
+
 
 #####################################################
 # TASK 6 -- Time EC scalar multiplication
@@ -269,4 +310,4 @@ def test_fails():
 #           - Fix one implementation to not leak information.
 
 def time_scalar_mul():
-    pass
+   pass
