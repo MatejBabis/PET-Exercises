@@ -110,7 +110,7 @@ def point_add(a, b, p, x0, y0, x1, y1):
    
    # check if the points satisfy the curve equation
    if not is_point_on_curve(a, b, p, x0, y0) or not is_point_on_curve(a, b, p, x1, y1):
-      raise Exception("One of the point not on curve")
+      raise Exception("One of the points not on curve")
    
    # if one of the elements is a neutral element (point at infinity),
    # return the result of the addition is the other point
@@ -129,8 +129,8 @@ def point_add(a, b, p, x0, y0, x1, y1):
       
    # operator syntax not available for inverses, so have to use a function,
    # otherwise use the formula
-   lam = ((y1 - y0) * ((x1 - x0).mod_inverse(p))) % p
-   xr = ((lam ** 2) - x0 - x1) % p
+   lam = ((y1 - y0) * (x1 - x0).mod_inverse(p)) % p
+   xr = (lam ** 2 - x0 - x1) % p
    yr = (lam * (x0 - xr) - y0) % p
 
    return xr, yr
@@ -148,8 +148,18 @@ def point_double(a, b, p, x, y):
     Returns the point representing the double of the input (x, y).
     """
    
-   # ADD YOUR CODE BELOW
-   xr, yr = None, None
+   # check if the point satisfies the curve equation
+   if not is_point_on_curve(a, b, p, x, y):
+      raise Exception("Point not on curve")
+   
+   # if the point is a neutral element, the result is also a neutral element
+   if x is None and y is None:
+      return x, y
+
+   # compute the value according to the formula
+   lam = ((3 * x ** 2 + a) * (2 * y).mod_inverse(p)) % p
+   xr = ((lam ** 2) - 2 * x) % p
+   yr = (lam * (x - xr) - y) % p
    
    return xr, yr
 
