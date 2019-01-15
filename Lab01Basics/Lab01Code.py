@@ -178,11 +178,23 @@ def point_scalar_multiplication_double_and_add(a, b, p, x, y, scalar):
         return Q
 
     """
+
+   # inverse string binary representation of a decimal number (low to high)
+   def dec_to_inv_binstr(dec):
+      return str(bin(dec)[2:])[::-1]
+   
+   if not is_point_on_curve(a, b, p, x, y):
+      raise Exception("Point not on curve")
+   
    Q = (None, None)
    P = (x, y)
-   
+
+   scalar_bin = dec_to_inv_binstr(scalar)
    for i in range(scalar.num_bits()):
-      pass  ## ADD YOUR CODE HERE
+      if scalar_bin[i] == "1":
+         Q = point_add(a, b, p, Q[0], Q[1], P[0], P[1])
+
+      P = point_double(a, b, p, P[0], P[1])
    
    return Q
 
@@ -201,15 +213,30 @@ def point_scalar_multiplication_montgomerry_ladder(a, b, p, x, y, scalar):
                 R0 = 2R0
             else
                 R0 = R0 + R1
-                R1 = 2 R1
+                R1 = 2R1
         return R0
 
     """
+   # string binary representation of a decimal number (high to low)
+   def dec_to_binstr(dec):
+      return str(bin(dec)[2:])
+   
+   if not is_point_on_curve(a, b, p, x, y):
+      raise Exception("Point not on curve")
+   
    R0 = (None, None)
    R1 = (x, y)
-   
-   for i in reversed(range(0, scalar.num_bits())):
-      pass  ## ADD YOUR CODE HERE
+
+   scalar_bin = dec_to_binstr(scalar)
+   for i in range(scalar.num_bits()):
+      # computes the point multiplication in a fixed amount of time
+      # to prevent timing/power side-channel attacks
+      if scalar_bin[i] == "0":
+         R1 = point_add(a, b, p, R0[0], R0[1], R1[0], R1[1])
+         R0 = point_double(a, b, p, R0[0], R0[1])
+      else:
+         R0 = point_add(a, b, p, R0[0], R0[1], R1[0], R1[1])
+         R1 = point_double(a, b, p, R1[0], R1[1])
    
    return R0
 
@@ -226,30 +253,31 @@ from hashlib import sha256
 from petlib.ec import EcGroup
 from petlib.ecdsa import do_ecdsa_sign, do_ecdsa_verify
 
-
 def ecdsa_key_gen():
    """ Returns an EC group, a random private key for signing
         and the corresponding public key for verification"""
    G = EcGroup()
    priv_sign = G.order().random()
    pub_verify = priv_sign * G.generator()
-   return (G, priv_sign, pub_verify)
+   return G, priv_sign, pub_verify
 
 
 def ecdsa_sign(G, priv_sign, message):
    """ Sign the SHA256 digest of the message using ECDSA and return a signature """
    plaintext = message.encode("utf8")
-   
-   ## YOUR CODE HERE
-   
+
+   digest = sha256(plaintext).digest()
+   sig = do_ecdsa_sign(G, priv_sign, digest)
+
    return sig
 
 
 def ecdsa_verify(G, pub_verify, message, sig):
    """ Verify the ECDSA signature on the message """
    plaintext = message.encode("utf8")
-   
-   ## YOUR CODE HERE
+
+   digest = sha256(plaintext).digest()
+   res = do_ecdsa_verify(G, pub_verify, sig, digest)
    
    return res
 
@@ -278,9 +306,9 @@ def dh_encrypt(pub, message, aliceSig=None):
         - Use the shared key to AES_GCM encrypt the message.
         - Optionally: sign the message with Alice's key.
     """
+
+   G, priv_dec, pub_enc = dh_get_key()
    
-   ## YOUR CODE HERE
-   pass
 
 
 def dh_decrypt(priv, ciphertext, aliceVer=None):
