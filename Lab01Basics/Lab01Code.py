@@ -29,16 +29,16 @@ import petlib
 
 from os import urandom
 from petlib.cipher import Cipher
-from pytest import raises
 
 aes = Cipher("aes-128-gcm")
-iv = urandom(16)  # requires 16-bit IV
 
 
 def encrypt_message(K, message):
    """ Encrypt a message under a key K """
    
    plaintext = message.encode("utf8")
+   iv = urandom(16)  # requires 16-bit IV
+
    ciphertext, tag = aes.quick_gcm_enc(K, iv, plaintext)
    
    return iv, ciphertext, tag
@@ -48,10 +48,10 @@ def decrypt_message(K, iv, ciphertext, tag):
    """ Decrypt a cipher text under a key K
 
         In case the decryption fails, throw an exception.
-    """
-   with raises(Exception) as excinfo:
-      plain = aes.quick_gcm_dec(K, iv, ciphertext, tag)
-   assert 'decryption failed' in str(excinfo.value)
+   """
+   # no need to throw an exception when decryption fails
+   # as quick_gcm_dec() implements that
+   plain = aes.quick_gcm_dec(K, iv, ciphertext, tag)
    
    return plain.encode("utf8")
 
@@ -79,7 +79,7 @@ def is_point_on_curve(a, b, p, x, y):
 
     Return True if point (x,y) is on curve, otherwise False.
     By convention a (None, None) point represents "infinity".
-    """
+   """
    
    assert isinstance(a, Bn)
    assert isinstance(b, Bn)
@@ -106,7 +106,7 @@ def point_add(a, b, p, x0, y0, x1, y1):
         yr  = lam * (xp - xr) - yp (mod p)
 
     Return the point resulting from the addition. Raises an Exception if the points are equal.
-    """
+   """
    
    # check if the points satisfy the curve equation
    if not is_point_on_curve(a, b, p, x0, y0) or not is_point_on_curve(a, b, p, x1, y1):
@@ -126,13 +126,13 @@ def point_add(a, b, p, x0, y0, x1, y1):
    # result of adding two points with the same remainder is a neutral element
    if x0 % p == x1 % p or y0 % p == y1 % p:
       return None, None
-      
+   
    # operator syntax not available for inverses, so have to use a function,
    # otherwise use the formula
    lam = ((y1 - y0) * (x1 - x0).mod_inverse(p)) % p
    xr = (lam ** 2 - x0 - x1) % p
    yr = (lam * (x0 - xr) - y0) % p
-
+   
    return xr, yr
 
 
@@ -146,7 +146,7 @@ def point_double(a, b, p, x, y):
         yr  = lam * (xp - xr) - yp (mod p)
 
     Returns the point representing the double of the input (x, y).
-    """
+   """
    
    # check if the point satisfies the curve equation
    if not is_point_on_curve(a, b, p, x, y):
@@ -155,7 +155,7 @@ def point_double(a, b, p, x, y):
    # if the point is a neutral element, the result is also a neutral element
    if x is None and y is None:
       return x, y
-
+   
    # compute the value according to the formula
    lam = ((3 * x ** 2 + a) * (2 * y).mod_inverse(p)) % p
    xr = ((lam ** 2) - 2 * x) % p
@@ -177,8 +177,8 @@ def point_scalar_multiplication_double_and_add(a, b, p, x, y, scalar):
             P = 2 * P
         return Q
 
-    """
-
+   """
+   
    # inverse string binary representation of a decimal number (low to high)
    def dec_to_inv_binstr(dec):
       return str(bin(dec)[2:])[::-1]
@@ -188,12 +188,12 @@ def point_scalar_multiplication_double_and_add(a, b, p, x, y, scalar):
    
    Q = (None, None)
    P = (x, y)
-
+   
    scalar_bin = dec_to_inv_binstr(scalar)
    for i in range(scalar.num_bits()):
       if scalar_bin[i] == "1":
          Q = point_add(a, b, p, Q[0], Q[1], P[0], P[1])
-
+      
       P = point_double(a, b, p, P[0], P[1])
    
    return Q
@@ -216,7 +216,7 @@ def point_scalar_multiplication_montgomerry_ladder(a, b, p, x, y, scalar):
                 R1 = 2R1
         return R0
 
-    """
+   """
    # string binary representation of a decimal number (high to low)
    def dec_to_binstr(dec):
       return str(bin(dec)[2:])
@@ -226,7 +226,7 @@ def point_scalar_multiplication_montgomerry_ladder(a, b, p, x, y, scalar):
    
    R0 = (None, None)
    R1 = (x, y)
-
+   
    scalar_bin = dec_to_binstr(scalar)
    for i in range(scalar.num_bits()):
       # computes the point multiplication in a fixed amount of time
@@ -253,6 +253,7 @@ from hashlib import sha256
 from petlib.ec import EcGroup
 from petlib.ecdsa import do_ecdsa_sign, do_ecdsa_verify
 
+
 def ecdsa_key_gen():
    """ Returns an EC group, a random private key for signing
         and the corresponding public key for verification"""
@@ -265,17 +266,17 @@ def ecdsa_key_gen():
 def ecdsa_sign(G, priv_sign, message):
    """ Sign the SHA256 digest of the message using ECDSA and return a signature """
    plaintext = message.encode("utf8")
-
+   
    digest = sha256(plaintext).digest()
    sig = do_ecdsa_sign(G, priv_sign, digest)
-
+   
    return sig
 
 
 def ecdsa_verify(G, pub_verify, message, sig):
    """ Verify the ECDSA signature on the message """
    plaintext = message.encode("utf8")
-
+   
    digest = sha256(plaintext).digest()
    res = do_ecdsa_verify(G, pub_verify, sig, digest)
    
@@ -288,36 +289,68 @@ def ecdsa_verify(G, pub_verify, message, sig):
 #           - Use Bob's public key to encrypt a message.
 #           - Use Bob's private key to decrypt the message.
 #
-# NOTE: 
 
 def dh_get_key():
    """ Generate a DH key pair """
    G = EcGroup()
    priv_dec = G.order().random()
    pub_enc = priv_dec * G.generator()
-   return (G, priv_dec, pub_enc)
+   return G, priv_dec, pub_enc
 
 
-def dh_encrypt(pub, message, aliceSig=None):
+def dh_encrypt(pub_B, message, aliceSig=False):
    """ Assume you know the public key of someone else (Bob),
     and wish to Encrypt a message for them.
         - Generate a fresh DH key for this message.
         - Derive a fresh shared key.
         - Use the shared key to AES_GCM encrypt the message.
         - Optionally: sign the message with Alice's key.
-    """
-
-   G, priv_dec, pub_enc = dh_get_key()
+   """
    
+   # Generate a session key: Only used for encrypting this message,
+   # the private key will be lost after the function executes
+   G, priv_A, pub_A = dh_get_key()
+   
+   # The result is an EcPt point obtained with:
+   # sk_AB = private_key_A * public_key_B
+   # which is the EC way of doing integers % prime concept
+   shared_key = priv_A * pub_B
+   # Calling export() converts the EC point to a compressed string
+   # representation, which we then trim to the expected key length
+   # (using sha256 digest so that the key is ASCII characters-only)
+   shared_key = sha256(shared_key.export()).digest()[:16]
+   
+   # use the function from Task 2
+   iv, message_enc, tag = encrypt_message(shared_key, message)
+   
+   sig = None
+   # sign the message if required
+   if aliceSig is True:
+      sig = (ecdsa_sign(G, priv_A, message), G)
+   
+   return (iv, message_enc, tag, pub_A), sig
 
 
-def dh_decrypt(priv, ciphertext, aliceVer=None):
+def dh_decrypt(priv_B, ciphertext, aliceVer=None):
    """ Decrypt a received message encrypted using your public key,
     of which the private key is provided. Optionally verify 
-    the message came from Alice using her verification key."""
+    the message came from Alice using her verification key. """
+
+   iv, message_enc, tag, pub_A = ciphertext
    
-   ## YOUR CODE HERE
-   pass
+   # same reasoning as in dh_encrypt()
+   shared_key = priv_B * pub_A
+   shared_key = sha256(shared_key.export()).digest()[:16]
+
+   message = decrypt_message(shared_key, iv, message_enc, tag)
+   
+   # if the message is signed, verify the signature
+   if aliceVer is not None:
+      sig, G = aliceVer
+      if not ecdsa_verify(G, pub_A, message, sig):
+         raise Exception("Signature verification failed")
+   
+   return message
 
 
 ## NOTE: populate those (or more) tests
@@ -326,15 +359,29 @@ def dh_decrypt(priv, ciphertext, aliceVer=None):
 #  $ py.test-2.7 --cov-report html --cov Lab01Code Lab01Code.py 
 
 def test_encrypt():
-   assert False
+   # Credentials (correctness of generation tested in Lab01Tests.py)
+   G, priv, pub = dh_get_key()
+   
+   message = u"This is a message to encrypt."
+   ciphertext, signature = dh_encrypt(pub, message, aliceSig=True)
+   
+   # First, test the ciphertext
+   iv, message_enc, tag, pub_A = ciphertext
+   
+   assert len(iv) == 16
+   assert len(message_enc) == len(message)
+   assert len(tag) == 16
+
+   # Second, verify a signature is generated
+   assert signature is not None
 
 
 def test_decrypt():
-   assert False
+   pass
 
 
 def test_fails():
-   assert False
+   pass
 
 
 #####################################################
