@@ -356,13 +356,26 @@ def dh_decrypt(priv_B, ciphertext, aliceVer=None):
 ## NOTE: populate those (or more) tests
 #  ensure they run using the "py.test filename" command.
 #  What is your test coverage? Where is it missing cases?
-#  $ py.test-2.7 --cov-report html --cov Lab01Code Lab01Code.py 
+#  $ py.test-2.7 --cov-report html --cov Lab01Code Lab01Code.py
 
+from os import urandom
+from itertools import islice, imap, repeat
+from pytest import raises
+import string
+
+
+# Helper function for tests that generates random input
+def random_input(length=10):
+   chars = set(string.printable)
+   char_gen = (c for c in imap(urandom, repeat(1)) if c in chars)
+   return ''.join(islice(char_gen, None, length))
+
+
+# Test encryption
 def test_encrypt():
    # Credentials (correctness of generation tested in Lab01Tests.py)
    G, priv, pub = dh_get_key()
-   
-   message = u"This is a message to encrypt."
+   message = random_input() * 1000
    ciphertext, signature = dh_encrypt(pub, message, aliceSig=True)
    
    # First, test the ciphertext
@@ -376,13 +389,32 @@ def test_encrypt():
    assert signature is not None
 
 
+# Tests decryption
 def test_decrypt():
-   pass
+   G, priv, pub = dh_get_key()
+   
+   message = random_input() * 1000
+   ciphertext, signature = dh_encrypt(pub, message, aliceSig=True)
+   
+   plaintext = dh_decrypt(priv, ciphertext, signature)
+   
+   assert plaintext == message
 
 
+# Check for conditions under which the decryption must fail
 def test_fails():
-   pass
-
+   G, priv, pub = dh_get_key()
+   
+   message = random_input() * 1000
+   ciphertext, signature = dh_encrypt(pub, message, aliceSig=True)
+   
+   # Generate another (incorect) private key and pass it to the decryption function
+   G2, priv2, pub2 = dh_get_key()
+   
+   # Check whether an exception was raised or not
+   with raises(Exception) as excinfo:
+      dh_decrypt(priv2, ciphertext, signature)
+   assert str(excinfo.value) == 'Cipher: decryption failed.'
 
 #####################################################
 # TASK 6 -- Time EC scalar multiplication
