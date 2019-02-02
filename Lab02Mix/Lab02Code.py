@@ -357,7 +357,7 @@ def generate_trace(number_of_users, threshold_size, number_of_rounds, targets_fr
 
     # Generate traces in which Alice (user 0) is sending
     for _ in range(number_of_rounds // 2):
-        senders = sorted([0] + random.sample(others, threshold_size-1))
+        senders = sorted([target] + random.sample(others, threshold_size-1))
         # Alice sends to a friend
         friend = random.choice(targets_friends)
         receivers = sorted([friend] + random.sample(all_users, threshold_size-1))
@@ -385,16 +385,38 @@ def analyze_trace(trace, target_number_of_friends, target=0):
 
     # the most likely friends (trimmed to 'target_number_of_friends' amount)
     return [rcvr for rcvr, _ in c.most_common(target_number_of_friends)]
-    
-## TASK Q1 (Question 1): The mix packet format you worked on uses AES-CTR with an IV set to all zeros.
-#                        Explain whether this is a security concern and justify your answer.
+ 
+   
+# TASK Q1 (Question 1): The mix packet format you worked on uses AES-CTR with an IV set to all zeros.
+#                       Explain whether this is a security concern and justify your answer.
+"""
 
-""" TODO: Your answer HERE """
+As AES-CTR is a stream cipher, using the same key and IV each time produces a same keystream
+each time, essentially becoming a many-time pad. Since the shared key is computed from two
+fixed keys, it will also always remain fixed. As a result, same plaintext will always
+produce the same ciphertext.
+
+For this scenario, however, each party is generated a fresh public & private key pair.
+As long as this is valid, the resulting keystream will be always be unique despite the fixed IV.
+Therefore, this is not a security concern.
+
+"""
 
 
-## TASK Q2 (Question 2): What assumptions does your implementation of the Statistical Disclosure Attack
-#                        makes about the distribution of traffic from non-target senders to receivers? Is
-#                        the correctness of the result returned dependent on this background distribution?
+# TASK Q2 (Question 2): What assumptions does your implementation of the Statistical Disclosure Attack
+#                       make about the distribution of traffic from non-target senders to receivers? Is
+#                       the correctness of the result returned dependent on this background distribution?
+"""
 
-""" TODO: Your answer HERE """
+This implementation disregards the cases where the target is not among the senders.
+
+Consider the situation where target's friend of a friend does not appear to be
+target's own friend. A receiver can be mistakenly identified as target's friend,
+despite that, in reality, they only serve as a middle man for the communication
+between the target and the real friend.
+
+Consider the example of a target using a VPN. The address of the VPN server that
+all of target's traffic goes through will appear as a friend of the target,
+despite the target only uses it as a middle man to communicate with his real friends.
+"""
 
