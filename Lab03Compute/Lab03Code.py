@@ -261,7 +261,16 @@ def simulate_poll(votes):
 # What is the advantage of the adversary in guessing b given your implementation of 
 # Homomorphic addition? What are the security implications of this?
 
-""" Your Answer here """
+"""
+Homomorphic schemes are not CCA-secure.
+
+Should the adversary have access to a decryption oracle, it would be able
+to determine the value of b using addition of ciphertext combinations,
+encryption of the results and comparison with the ciphertexts received from H2.
+
+Additional security measures should be considered to prevent this,
+for instance using zero-knowledge proofs.
+"""
 
 ###########################################################
 # TASK Q2 -- Answer questions regarding your implementation
@@ -272,4 +281,11 @@ def simulate_poll(votes):
 # that it yields an arbitrary result. Can those malicious actions 
 # be detected given your implementation?
 
-""" Your Answer here """
+"""
+The idea behind private polling is knowing the sum of all the votes,
+without being able to tell what an individual voted for.
+
+An adversary can use this to their advantage by implementing an encoding
+function that uses arbitrarily large (positive OR negative) values to skew
+the results based on their preferences.
+"""
