@@ -7,7 +7,7 @@
 # $ py.test -v test_file_name.py
 
 ###########################
-# Group Members: TODO
+# Group Members: Matej Babis
 ###########################
 
 from petlib.ec import EcGroup
@@ -16,26 +16,30 @@ from petlib.bn import Bn
 from hashlib import sha256
 from binascii import hexlify
 
+
 def setup():
     """ Generates the Cryptosystem Parameters. """
     G = EcGroup(nid=713)
     g = G.hash_to_point(b"g")
     hs = [G.hash_to_point(("h%s" % i).encode("utf8")) for i in range(4)]
     o = G.order()
-    return (G, g, hs, o)
+    return G, g, hs, o
+
 
 def keyGen(params):
    """ Generate a private / public key pair. """
    (G, g, hs, o) = params
    priv = o.random()
    pub = priv * g
-   return (priv, pub)
+   return priv, pub
+
 
 def to_challenge(elements):
     """ Generates a Bn challenge by hashing a number of EC points """
     Cstring = b",".join([hexlify(x.export()) for x in elements])
     Chash =  sha256(Cstring).digest()
     return Bn.from_binary(Chash)
+
 
 #####################################################
 # TASK 1 -- Prove knowledge of a DH public key's 
@@ -49,20 +53,26 @@ def proveKey(params, priv, pub):
                  c (a challenge)
                  r (the response)
     """  
-    (G, g, hs, o) = params
+    G, g, hs, o = params
     
-    ## YOUR CODE HERE:
+    w = o.random()                  # random witness
+    gw = w * g
+    # TODO: why g instead of public key?
+    c = to_challenge([g, gw])       # hash == NIZK verifier
+    r = (w - c * priv) % o          # response
     
-    return (c, r)
+    return c, r
+
 
 def verifyKey(params, pub, proof):
     """ Schnorr non-interactive proof verification of knowledge of a a secret.
         Returns a boolean indicating whether the verification was successful.
     """
-    (G, g, hs, o) = params
+    G, g, hs, o = params
     c, r = proof
-    gw_prime  = c * pub + r * g 
+    gw_prime = c * pub + r * g
     return to_challenge([g, gw_prime]) == c
+
 
 #####################################################
 # TASK 2 -- Prove knowledge of a Discrete Log 
@@ -74,11 +84,12 @@ def commit(params, secrets):
         Returns the commitment (C) and the opening (r).
     """
     assert len(secrets) == 4
-    (G, g, (h0, h1, h2, h3), o) = params
+    G, g, (h0, h1, h2, h3), o = params
     x0, x1, x2, x3 = secrets
     r = o.random()
     C = x0 * h0 + x1 * h1 + x2 * h2 + x3 * h3 + r * g
-    return (C, r)
+    return C, r
+
 
 def proveCommitment(params, C, r, secrets):
     """ Prove knowledge of the secrets within a commitment, 
@@ -88,23 +99,25 @@ def proveCommitment(params, C, r, secrets):
                 commitment), and secrets (a list of secrets).
         Returns: a challenge (c) and a list of responses.
     """
-    (G, g, (h0, h1, h2, h3), o) = params
+    G, g, (h0, h1, h2, h3), o = params
     x0, x1, x2, x3 = secrets
 
     ## YOUR CODE HERE:
 
-    return (c, responses)
+    return c, responses
+
 
 def verifyCommitments(params, C, proof):
     """ Verify a proof of knowledge of the commitment.
         Return a boolean denoting whether the verification succeeded. """
-    (G, g, (h0, h1, h2, h3), o) = params
+    G, g, (h0, h1, h2, h3), o = params
     c, responses = proof
-    (r0, r1, r2, r3, rr) = responses
+    r0, r1, r2, r3, rr = responses
 
     Cw_prime = c * C + r0 * h0 + r1 * h1 + r2 * h2 + r3 * h3 + rr * g
     c_prime = to_challenge([g, h0, h1, h2, h3, Cw_prime])
     return c_prime == c
+
 
 #####################################################
 # TASK 3 -- Prove Equality of discrete logarithms.
