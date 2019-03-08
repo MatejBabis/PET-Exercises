@@ -56,9 +56,8 @@ def proveKey(params, priv, pub):
     G, g, hs, o = params
     
     w = o.random()                  # random witness
-    gw = w * g
-    # TODO: why g instead of public key?
-    c = to_challenge([g, gw])       # hash == NIZK verifier
+    W = w * g                       # g^w = W
+    c = to_challenge([g, W])        # hash == NIZK verifier
     r = (w - c * priv) % o          # response
     
     return c, r
@@ -102,9 +101,21 @@ def proveCommitment(params, C, r, secrets):
     G, g, (h0, h1, h2, h3), o = params
     x0, x1, x2, x3 = secrets
 
-    ## YOUR CODE HERE:
+    # generate random witnesses
+    w0, w1, w2, w3, wg = [o.random() for _ in range(5)]
 
-    return c, responses
+    # Witness has the same shape as the Commitment
+    W = w0 * h0 + w1 * h1 + w2 * h2 + w3 * h3 + wg * g
+
+    c = to_challenge([g, h0, h1, h2, h3, W])
+    
+    r0 = (w0 - c * x0) % o
+    r1 = (w1 - c * x1) % o
+    r2 = (w2 - c * x2) % o
+    r3 = (w3 - c * x3) % o
+    rr = (wg - c * r) % o
+
+    return c, [r0, r1, r2, r3, rr]
 
 
 def verifyCommitments(params, C, proof):
@@ -114,8 +125,9 @@ def verifyCommitments(params, C, proof):
     c, responses = proof
     r0, r1, r2, r3, rr = responses
 
-    Cw_prime = c * C + r0 * h0 + r1 * h1 + r2 * h2 + r3 * h3 + rr * g
-    c_prime = to_challenge([g, h0, h1, h2, h3, Cw_prime])
+    # analogous to the formula for W above, but include the challenge & commitment
+    CW_prime = c * C + r0 * h0 + r1 * h1 + r2 * h2 + r3 * h3 + rr * g
+    c_prime = to_challenge([g, h0, h1, h2, h3, CW_prime])
     return c_prime == c
 
 
@@ -125,18 +137,19 @@ def verifyCommitments(params, C, proof):
 
 def gen2Keys(params):
     """ Generate two related public keys K = x * g and L = x * h0. """
-    (G, g, (h0, h1, h2, h3), o) = params
+    G, g, (h0, h1, h2, h3), o = params
     x = o.random()
 
     K = x * g
     L = x * h0
 
-    return (x, K, L)    
+    return x, K, L
+
 
 def proveDLEquality(params, x, K, L):
     """ Generate a ZK proof that two public keys K, L have the same secret private key x, 
         as well as knowledge of this private key. """
-    (G, g, (h0, h1, h2, h3), o) = params
+    G, g, (h0, h1, h2, h3), o = params
     w = o.random()
     Kw = w * g
     Lw = w * h0
@@ -144,16 +157,21 @@ def proveDLEquality(params, x, K, L):
     c = to_challenge([g, h0, Kw, Lw])
 
     r = (w - c * x) % o
-    return (c, r)
+    
+    return c, r
+
 
 def verifyDLEquality(params, K, L, proof):
     """ Return whether the verification of equality of two discrete logarithms succeeded. """ 
-    (G, g, (h0, h1, h2, h3), o) = params
+    G, g, (h0, h1, h2, h3), o = params
     c, r = proof
 
-    ## YOUR CODE HERE:
+    Kprime = c * K + r * g      # K' = K^c + g^r
+    Lprime = c * L + r * h0     # L' = L^r + h0^r    (h0 is a generator)
+    cprime = to_challenge([g, h0, Kprime, Lprime])
 
-    return # YOUR RETURN HERE
+    return c == cprime
+
 
 #####################################################
 # TASK 4 -- Prove correct encryption and knowledge of 
@@ -163,9 +181,10 @@ def encrypt(params, pub, m):
     """ Encrypt a message m under a public key pub. 
         Returns both the randomness and the ciphertext.
     """
-    (G, g, (h0, h1, h2, h3), o) = params
+    G, g, (h0, h1, h2, h3), o = params
     k = o.random()
     return k, (k * g, k * pub + m * h0)
+
 
 def proveEnc(params, pub, Ciphertext, k, m):
     """ Prove in ZK that the ciphertext is well formed 
@@ -173,22 +192,35 @@ def proveEnc(params, pub, Ciphertext, k, m):
 
         Return the proof: challenge and the responses.
     """ 
-    (G, g, (h0, h1, h2, h3), o) = params
+    G, g, (h0, h1, h2, h3), o = params
     a, b = Ciphertext
 
-    ## YOUR CODE HERE:
+    wk = o.random()
+    wm = o.random()
+    
+    Wa = wk * g
+    Wb = wk * pub + wm * h0
+    
+    c = to_challenge([g, h0, Wa, Wb])
+    
+    rk = (wk - c * k) % o
+    rm = (wm - c * m) % o
 
-    return (c, (rk, rm))
+    return c, (rk, rm)
+
 
 def verifyEnc(params, pub, Ciphertext, proof):
     """ Verify the proof of correct encryption and knowledge of a ciphertext. """
-    (G, g, (h0, h1, h2, h3), o) = params
+    G, g, (h0, h1, h2, h3), o = params
     a, b = Ciphertext    
-    (c, (rk, rm)) = proof
-
-    ## YOUR CODE HERE:
-
-    return ## YOUR RETURN HERE
+    c, (rk, rm) = proof
+    
+    CWa_prime = c * a + rk * g
+    CWb_prime = c * b + rk * pub + rm * h0
+    
+    c_prime = to_challenge([g, h0, CWa_prime, CWb_prime])
+    
+    return c_prime == c
 
 
 #####################################################
@@ -199,7 +231,7 @@ def relation(params, x1):
     """ Returns a commitment C to x0 and x1, such that x0 = 10 x1 + 20,
         as well as x0, x1 and the commitment opening r. 
     """
-    (G, g, (h0, h1, h2, h3), o) = params
+    G, g, (h0, h1, h2, h3), o = params
     r = o.random()
 
     x0 = (10 * x1 + 20)
@@ -207,45 +239,62 @@ def relation(params, x1):
 
     return C, x0, x1, r
 
+
 def prove_x0eq10x1plus20(params, C, x0, x1, r):
     """ Prove C is a commitment to x0 and x1 and that x0 = 10 x1 + 20. """
-    (G, g, (h0, h1, h2, h3), o) = params
+    G, g, (h0, h1, h2, h3), o = params
 
-    ## YOUR CODE HERE:
+    # note that there won't be any x0/r0 value
+    wx, wg = [o.random() for _ in range(2)]
 
-    return ## YOUR RETURN HERE
+    W = wg * g + wx * h1 + (10 * wx + 20) * h0
+    c = to_challenge([g, h0, h1, W])
+    
+    rx = (wx - c * x1) % o
+    rr = (wg - c * r) % o
+    
+    return c, [rx, rr]
+
 
 def verify_x0eq10x1plus20(params, C, proof):
     """ Verify that proof of knowledge of C and x0 = 10 x1 + 20. """
-    (G, g, (h0, h1, h2, h3), o) = params
+    G, g, (h0, h1, h2, h3), o = params
+    c, responses = proof
+    rx, rr = responses
+    
+    # using the formulas for x0, C, rx, rr + their substitution to W we obtain:
+    CW_prime = c * (C - 20 * h0) + rr * g + rx * h1 + (10 * rx + 20) * h0
+    c_prime = to_challenge([g, h0, h1, CW_prime])
+    
+    return c_prime == c
 
-    ## YOUR CODE HERE:
-
-    return ## YOUR RETURN HERE
 
 #####################################################
 # TASK 6 -- (OPTIONAL) Prove that a ciphertext is either 0 or 1
 
-
 def binencrypt(params, pub, m):
     """ Encrypt a binary value m under public key pub """
     assert m in [0, 1]
-    (G, g, (h0, h1, h2, h3), o) = params
+    G, g, (h0, h1, h2, h3), o = params
     
     k = o.random()
     return k, (k * g, k * pub + m * h0)
+
 
 def provebin(params, pub, Ciphertext, k, m):
     """ Prove a ciphertext is valid and encrypts a binary value either 0 or 1. """
     pass
 
+
 def verifybin(params, pub, Ciphertext, proof):
     """ verify that proof that a cphertext is a binary value 0 or 1. """
     pass
 
+
 def test_bin_correct():
     """ Test that a correct proof verifies """
     pass
+
 
 def test_bin_incorrect():
     """ Prove that incorrect proofs fail. """
@@ -281,8 +330,9 @@ def test_bin_incorrect():
 
 """ TODO: Your answer here. """
 
+
 def prove_something(params, KX, KY, y):
-    (G, g, _, o) = params
+    G, g, _, o = params
 
     # Simulate proof for KX
     # r = wx - cx => g^w = g^r * KX^c 
@@ -300,13 +350,13 @@ def prove_something(params, KX, KY, y):
     ry = ( wy - c2 * y ) % o
 
     # return proof
-    return (c1, c2, rx, ry)
+    return c1, c2, rx, ry
 
 import pytest
 
 def test_prove_something():
     params = setup()
-    (G, g, hs, o) = params
+    G, g, hs, o = params
 
     # Commit to x and y
     x = o.random()
@@ -315,7 +365,7 @@ def test_prove_something():
     KY = y*g
 
     # Pass only y
-    (c1, c2, rx, ry) = prove_something(params, KX, KY, y)
+    c1, c2, rx, ry = prove_something(params, KX, KY, y)
 
     # Verify the proof
     W_KX = rx * g + c1 * KX
