@@ -263,7 +263,7 @@ def verify_x0eq10x1plus20(params, C, proof):
     rx, rr = responses
     
     # using the formulas for x0, C, rx, rr + their substitution to W we obtain:
-    CW_prime = c * (C - 20 * h0) + rr * g + rx * h1 + (10 * rx + 20) * h0
+    CW_prime = c * C + rr * g + rx * h1 + (10 * rx + 20) * h0 - 20 * c * h0
     c_prime = to_challenge([g, h0, h1, CW_prime])
     
     return c_prime == c
@@ -315,7 +315,13 @@ def test_bin_incorrect():
 # that  deviates from the Schnorr identification protocol? Justify 
 # your answer by describing what a dishonest verifier may do.
 
-""" TODO: Your answer here. """
+"""
+Plausible deniability does not hold for dishonest verifiers.
+This is true because of the causality principle of the Schnorr protocol
+discussed in the lecture. The verifier needs to commit to W before
+generating challenge c, which is obtained from a (by definition) secure
+hash function.
+"""
 
 #####################################################
 # TASK Q2 - Answer the following question:
@@ -328,7 +334,13 @@ def test_bin_incorrect():
 #
 # Hint: Look at "test_prove_something" too.
 
-""" TODO: Your answer here. """
+"""
+Based on how the challenge is obtained, the verifier is convinced that
+the prover knows one of x or y, but not which one.
+Because c = c1 + c2, the prover can craft an arbitrary value for c2 = (c - c1),
+but they could similarly compute c1 = (c - c2), which is how the verifier can
+only be sure of prover's knowledge of either x or y.
+"""
 
 
 def prove_something(params, KX, KY, y):
